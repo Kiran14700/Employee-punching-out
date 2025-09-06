@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -66,28 +67,61 @@ public class AdminService {
                 .orElse(null);
     }
 
-    // -------- NEW: escalation logic --------
+    // -------- NEW: shift-based escalation logic --------
+
+    /**
+     * Check if a task is pending
+     */
     private boolean isPending(Task t) {
         return t.getDueDate() != null && !"COMPLETED".equalsIgnoreCase(t.getStatus());
     }
 
-    /** Due = same calendar day as "now", and now is BEFORE the due time (i.e., deadline later today) */
+    /**
+     * Tasks due (mid-shift)
+     * If employee worked more than half of shift hours (default 9h shift),
+     * task moves to Due.
+     */
     public Map<Long, List<Task>> getDueTasksByUserId() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDate today = now.toLocalDate();
+
         return taskRepository.findAll().stream()
                 .filter(this::isPending)
-                .filter(t -> t.getDueDate().toLocalDate().isEqual(today))
-                .filter(t -> now.isBefore(t.getDueDate()))
+                .filter(t -> t.getUser().getInTime() != null)
+                .filter(t -> {
+                    User emp = t.getUser();
+                    LocalDateTime loginTime = emp.getInTime();
+                    double shiftHours = 9.0; // full shift
+                    double halfShiftHours = shiftHours / 2.0;
+
+                    // Calculate worked hours
+                    double workedHours = ChronoUnit.MINUTES.between(loginTime, now) / 60.0;
+
+                    // Mid-shift => Due
+                    return workedHours >= halfShiftHours && now.isBefore(t.getDueDate());
+                })
                 .collect(Collectors.groupingBy(t -> t.getUser().getId()));
     }
 
-    /** Escalated = deadline reached or passed (now >= dueDate), regardless of day */
+    /**
+     * Tasks escalated (end of shift or past deadline)
+     * If employee worked full shift hours or passed dueDate
+     */
     public Map<Long, List<Task>> getEscalatedTasksByUserId() {
         LocalDateTime now = LocalDateTime.now();
+
         return taskRepository.findAll().stream()
                 .filter(this::isPending)
-                .filter(t -> !now.isBefore(t.getDueDate())) // now >= dueDate
+                .filter(t -> t.getUser().getInTime() != null)
+                .filter(t -> {
+                    User emp = t.getUser();
+                    LocalDateTime loginTime = emp.getInTime();
+                    double shiftHours = 9.0;
+
+                    double workedHours = ChronoUnit.MINUTES.between(loginTime, now) / 60.0;
+
+                    // Escalation: worked full shift OR passed dueDate
+                    return workedHours >= shiftHours || !now.isBefore(t.getDueDate());
+                })
                 .collect(Collectors.groupingBy(t -> t.getUser().getId()));
     }
 

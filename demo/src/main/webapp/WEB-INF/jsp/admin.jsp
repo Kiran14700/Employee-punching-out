@@ -5,6 +5,7 @@
 <head>
     <title>Admin Dashboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body class="p-4">
 
@@ -22,14 +23,6 @@
         Escalation View
     </a>
 </div>
-
-<!-- Employee List -->
-<h4>Employees</h4>
-<ul>
-    <c:forEach var="emp" items="${employees}">
-        <li>${emp.username} - Tasks: ${emp.tasks.size()}</li>
-    </c:forEach>
-</ul>
 
 <!-- Add Task Button -->
 <button type="button" class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#addTaskModal">
@@ -58,11 +51,13 @@
                         <label class="form-label">Description</label>
                         <textarea class="form-control" name="description" required></textarea>
                     </div>
-                    <!-- Deadline Field -->
+
+                    <!-- Updated: Only Date (no time) -->
                     <div class="mb-3">
-                        <label class="form-label">Deadline (Date & Time)</label>
-                        <input type="datetime-local" class="form-control" name="dueDateTime" required>
+                        <label class="form-label">Deadline (Date Only)</label>
+                        <input type="date" class="form-control" name="dueDateTime" required>
                     </div>
+
                     <div class="mb-3">
                         <label class="form-label">Assign To</label><br/>
                         <c:forEach var="emp" items="${employees}">
@@ -79,6 +74,7 @@
         </div>
     </div>
 </div>
+
 
 <!-- Employees Task Table -->
 <table class="table table-bordered">
@@ -97,7 +93,17 @@
             <td>${emp.username}</td>
             <td>
                 <c:forEach var="task" items="${emp.tasks}">
-                    • ${task.summary}<br/>
+                    <div class="mb-2">
+                        <!-- Summary clickable -->
+                        <a href="#" class="task-detail-link text-primary"
+                           data-bs-toggle="modal"
+                           data-bs-target="#taskDetailModal"
+                           data-title="${task.title}"
+                           data-summary="${task.summary}"
+                           data-description="${task.description}">
+                            ${task.summary}
+                        </a>
+                    </div>
                 </c:forEach>
             </td>
             <td>
@@ -127,6 +133,41 @@
     </tbody>
 </table>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Modal for Task Details -->
+<div class="modal fade" id="taskDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Task Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Title:</strong> <span id="taskModalTitleText"></span></p>
+                <p><strong>Summary:</strong> <span id="taskModalSummary"></span></p>
+                <p><strong>Description:</strong> <span id="taskModalDescription"></span></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                        data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Fill modal with clicked task details
+    document.addEventListener("DOMContentLoaded", function () {
+        const taskLinks = document.querySelectorAll(".task-detail-link");
+        taskLinks.forEach(link => {
+            link.addEventListener("click", function () {
+                document.getElementById("taskModalTitleText").textContent = this.dataset.title;
+                document.getElementById("taskModalSummary").textContent = this.dataset.summary;
+                document.getElementById("taskModalDescription").textContent = this.dataset.description;
+            });
+        });
+    });
+</script>
+
 </body>
 </html>

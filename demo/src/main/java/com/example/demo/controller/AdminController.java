@@ -53,14 +53,14 @@ public class AdminController {
                              @RequestParam(name = "userIds", required = false) List<Long> userIds,
                              @RequestParam("dueDateTime") String dueDateTime,
                              HttpSession session) {
-
         if (userIds != null && !userIds.isEmpty()) {
             String adminName = (String) session.getAttribute("adminName");
             Admin admin = adminService.findAdminByUsername(adminName);
 
             LocalDateTime dueDate = null;
             if (dueDateTime != null && !dueDateTime.isEmpty()) {
-                dueDate = LocalDateTime.parse(dueDateTime, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
+                // Only date (time will be ignored)
+                dueDate = LocalDateTime.parse(dueDateTime + "T23:59", DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
             }
 
             for (Long userId : userIds) {
@@ -73,19 +73,18 @@ public class AdminController {
                     newTask.setStatus("Not Started");
                     newTask.setUser(employee);
                     newTask.setAssignedBy(admin);
-                    newTask.setDueDate(dueDate); // save deadline
+                    newTask.setDueDate(dueDate); // set only date, time ignored
                     adminService.saveTask(newTask);
                 }
             }
         }
-
         return "redirect:/admin";
     }
 
     // ---------------- ESCALATION VIEW ----------------
     @GetMapping("/admin/escalation")
     public String escalationView(Model model) {
-        // Employees with due & escalated tasks
+        // Employees with due & escalated tasks using shift-based logic
         List<User> dueEmployees = adminService.getEmployeesWithDueTasks();
         List<User> escalatedEmployees = adminService.getEmployeesWithEscalatedTasks();
 
