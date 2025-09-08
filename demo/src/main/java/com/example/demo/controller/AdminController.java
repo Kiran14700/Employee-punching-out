@@ -3,18 +3,19 @@ package com.example.demo.controller;
 import com.example.demo.entity.Admin;
 import com.example.demo.entity.Task;
 import com.example.demo.entity.User;
+import com.example.demo.repository.TaskRepository;
 import com.example.demo.service.AdminService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,79 +25,148 @@ public class AdminController {
     @Autowired
     private AdminService adminService;
 
+    @Autowired
+    private TaskRepository taskRepository;
+
     // ---------------- ADMIN DASHBOARD ----------------
     @GetMapping("/admin")
     public String adminDashboard(HttpSession session, Model model) {
-        // Save admin login time in session
-        if (session.getAttribute("adminLoginTime") == null) {
-            session.setAttribute("adminLoginTime", LocalDateTime.now());
-        }
-        LocalDateTime loginTime = (LocalDateTime) session.getAttribute("adminLoginTime");
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
-        String inTime = loginTime != null ? loginTime.format(formatter) : "--:--";
+        String adminName = (String) session.getAttribute("adminName");
+        if (adminName == null) return "redirect:/login";
 
-        // Fetch employees & tasks
-        List<User> employees = adminService.getAllEmployees();
-        List<Task> allTasks = adminService.getAllTasks();
+        Admin admin = adminService.findAdminByUsername(adminName);
+        if (admin == null) return "redirect:/login";
+
+        LocalDateTime loginTime = admin.getInTime();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+        String inTime = (loginTime != null) ? loginTime.format(formatter) : "--:--";
 
         model.addAttribute("inTime", inTime);
         model.addAttribute("taskCount", adminService.getTotalTasksAssigned());
-        model.addAttribute("employees", employees);
-        model.addAttribute("allTasks", allTasks);
+        model.addAttribute("employees", adminService.getAllEmployees());
+        model.addAttribute("allTasks", adminService.getAllTasks());
 
-        return "admin"; // admin.jsp
+        return "admin";
     }
 
     // ---------------- ASSIGN TASK ----------------
     @PostMapping("/admin/assign-task")
-    public String assignTask(@ModelAttribute Task task,
-                             @RequestParam(name = "userIds", required = false) List<Long> userIds,
-                             @RequestParam("dueDateTime") String dueDateTime,
-                             HttpSession session) {
-        if (userIds != null && !userIds.isEmpty()) {
-            String adminName = (String) session.getAttribute("adminName");
-            Admin admin = adminService.findAdminByUsername(adminName);
+    public String assignTask(HttpServletRequest request, HttpSession session) {
+        Admin admin = (Admin) session.getAttribute("admin"); // ✅ stored Admin object
+        if (admin == null) {
+            return "redirect:/login";
+        }
 
-            LocalDateTime dueDate = null;
-            if (dueDateTime != null && !dueDateTime.isEmpty()) {
-                // Only date (time will be ignored)
-                dueDate = LocalDateTime.parse(dueDateTime + "T23:59", DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
-            }
+        String[] selectedUsers = request.getParameterValues("userIds");
+        if (selectedUsers != null) {
+            for (String userIdStr : selectedUsers) {
+                int userId = Integer.parseInt(userIdStr);
 
-            for (Long userId : userIds) {
-                User employee = adminService.findUserById(userId);
-                if (employee != null) {
-                    Task newTask = new Task();
-                    newTask.setTitle(task.getTitle());
-                    newTask.setSummary(task.getSummary());
-                    newTask.setDescription(task.getDescription());
-                    newTask.setStatus("Not Started");
-                    newTask.setUser(employee);
-                    newTask.setAssignedBy(admin);
-                    newTask.setDueDate(dueDate); // set only date, time ignored
-                    adminService.saveTask(newTask);
+                Task task = new Task();
+                task.setTitle(request.getParameter("title"));
+                task.setSummary(request.getParameter("summary"));
+                task.setDescription(request.getParameter("description"));
+
+                String deadlineStr = request.getParameter("dueDateTime");
+                if (deadlineStr != null && !deadlineStr.isEmpty()) {
+                    LocalDate deadlineDate = LocalDate.parse(deadlineStr);
+                    LocalDateTime deadline = deadlineDate.atTime(23, 59);
+                    task.setDueDate(deadline);
                 }
+
+                String priorityStr = request.getParameter("priority");
+                if (priorityStr != null && !priorityStr.isEmpty()) {
+                    try {
+                        task.setPriority(Integer.parseInt(priorityStr));
+                    } catch (NumberFormatException e) {
+                        task.setPriority(3);
+                    }
+                } else {
+                    task.setPriority(3);
+                }
+
+                User user = adminService.findUserById((long) userId);
+                if (user != null) {
+                    task.setUser(user);
+                }
+                task.setAssignedBy(admin);
+                task.setStatus("Not Started");
+
+                taskRepository.save(task);
             }
         }
+
         return "redirect:/admin";
     }
 
     // ---------------- ESCALATION VIEW ----------------
     @GetMapping("/admin/escalation")
-    public String escalationView(Model model) {
-        // Employees with due & escalated tasks using shift-based logic
-        List<User> dueEmployees = adminService.getEmployeesWithDueTasks();
-        List<User> escalatedEmployees = adminService.getEmployeesWithEscalatedTasks();
+    public String escalationPage(Model model) {
+        Map<Long, List<Task>> dueTasks = adminService.getDueTasksByUserId();
+        Map<Long, List<Task>> escalatedTasks = adminService.getEscalatedTasksByUserId();
 
-        // Maps of userId -> filtered tasks
-        Map<Long, List<Task>> dueTasksMap = adminService.getDueTasksByUserId();
-        Map<Long, List<Task>> escalatedTasksMap = adminService.getEscalatedTasksByUserId();
+        List<User> dueUsers = adminService.getEmployeesWithDueTasks();
+        List<User> escalatedUsers = adminService.getEmployeesWithEscalatedTasks();
 
-        model.addAttribute("dueEmployees", dueEmployees);
-        model.addAttribute("escalatedEmployees", escalatedEmployees);
-        model.addAttribute("dueTasksMap", dueTasksMap);
-        model.addAttribute("escalatedTasksMap", escalatedTasksMap);
+        model.addAttribute("dueEmployees", dueUsers);
+        model.addAttribute("escalatedEmployees", escalatedUsers);
+        model.addAttribute("dueTasksMap", dueTasks);
+        model.addAttribute("escalatedTasksMap", escalatedTasks);
 
-        return "escalation"; // escalation.jsp
+        Map<Long, Integer> escalationCountMap = new HashMap<>();
+        escalatedTasks.forEach((userId, taskList) -> escalationCountMap.put(userId, taskList.size()));
+        model.addAttribute("escalationCountMap", escalationCountMap);
+
+        return "escalation";
     }
+
+
+
+
+
+    // ---------------- UPDATE TASK ----------------
+    @PostMapping("/admin/update-task")
+    public String updateTask(HttpServletRequest request) {
+        Long taskId = Long.parseLong(request.getParameter("taskId"));
+        Task task = taskRepository.findById(taskId).orElse(null);
+
+        if (task != null) {
+            task.setTitle(request.getParameter("title"));
+            task.setSummary(request.getParameter("summary"));
+            task.setDescription(request.getParameter("description"));
+
+            String dueDateStr = request.getParameter("dueDate");
+            if (dueDateStr != null && !dueDateStr.isEmpty()) {
+                try {
+                    LocalDate deadlineDate = LocalDate.parse(dueDateStr);
+                    task.setDueDate(deadlineDate.atTime(23, 59));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            String priorityStr = request.getParameter("priority");
+            if (priorityStr != null && !priorityStr.isEmpty()) {
+                try {
+                    task.setPriority(Integer.parseInt(priorityStr));
+                } catch (NumberFormatException e) {
+                    task.setPriority(3);
+                }
+            }
+
+            taskRepository.save(task);
+        }
+
+        // ✅ Always return to admin dashboard
+        return "redirect:/admin";
+    }
+
+
+    // ---------------- DELETE TASK ----------------
+    @PostMapping("/admin/delete-task")
+    public String deleteTask(@RequestParam Long taskId) {
+        taskRepository.deleteById(taskId);
+        return "redirect:/admin";
+    }
+
 }

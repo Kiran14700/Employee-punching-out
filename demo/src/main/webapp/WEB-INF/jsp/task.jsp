@@ -25,6 +25,8 @@
                 data-title="${task.title}"
                 data-summary="${task.summary}"
                 data-description="${task.description}"
+                data-priority="${task.priority}"
+
                 data-assignedby="${task.assignedBy != null ? task.assignedBy.username : 'Admin'}"
                 data-duedate="${task.dueDate != null ? task.dueDate : 'No Deadline'}"
                 data-status="${task.status}">
@@ -46,6 +48,8 @@
                 <p><strong>Summary:</strong> <span id="taskSummary"></span></p>
                 <p><strong>Description:</strong> <span id="taskDescription"></span></p>
                 <p><strong>Assigned By:</strong> <span id="taskAssignedBy"></span> Sir</p>
+                <p><strong>Priority:</strong> <span id="taskPriority"></span></p>
+
                 <p><strong>Deadline:</strong> <span id="taskDeadline"></span></p>
             </div>
             <div class="modal-footer">
@@ -61,31 +65,43 @@
 <script>
     // Fill modal values dynamically
     let taskModal = document.getElementById('taskModal');
-    taskModal.addEventListener('show.bs.modal', function (event) {
-        let button = event.relatedTarget;
-        let taskId = button.getAttribute('data-id');
-        let status = button.getAttribute('data-status');
+taskModal.addEventListener('show.bs.modal', function (event) {
+    let button = event.relatedTarget;
+    let taskId = button.getAttribute('data-id');
+    let status = button.getAttribute('data-status');
 
-        document.getElementById('taskIdField').value = taskId;
-        document.getElementById('taskTitleText').innerText = button.getAttribute('data-title');
-        document.getElementById('taskSummary').innerText = button.getAttribute('data-summary');
-        document.getElementById('taskDescription').innerText = button.getAttribute('data-description');
-        document.getElementById('taskAssignedBy').innerText = button.getAttribute('data-assignedby');
-        document.getElementById('taskDeadline').innerText = button.getAttribute('data-duedate');
+    document.getElementById('taskIdField').value = taskId;
+    document.getElementById('taskTitleText').innerText = button.getAttribute('data-title');
+    document.getElementById('taskSummary').innerText = button.getAttribute('data-summary');
+    document.getElementById('taskDescription').innerText = button.getAttribute('data-description');
 
-        let acceptButton = document.getElementById('acceptButton');
-        if (status === "In Progress" || status === "Completed") {
-            acceptButton.innerText = "Accepted";
-            acceptButton.classList.remove("btn-success");
-            acceptButton.classList.add("btn-secondary");
-            acceptButton.disabled = true;
-        } else {
-            acceptButton.innerText = "Accept";
-            acceptButton.classList.remove("btn-secondary");
-            acceptButton.classList.add("btn-success");
-            acceptButton.disabled = false;
-        }
-    });
+    // ✅ priority mapping
+    const priorityMap = {
+        "1": "Critical",
+        "2": "High",
+        "3": "Medium",
+        "4": "Low",
+        "5": "Very Low"
+    };
+    document.getElementById('taskPriority').innerText = priorityMap[button.getAttribute('data-priority')];
+
+    document.getElementById('taskAssignedBy').innerText = button.getAttribute('data-assignedby');
+    document.getElementById('taskDeadline').innerText = button.getAttribute('data-duedate');
+
+    let acceptButton = document.getElementById('acceptButton');
+    if (status === "In Progress" || status === "Completed") {
+        acceptButton.innerText = "Accepted";
+        acceptButton.classList.remove("btn-success");
+        acceptButton.classList.add("btn-secondary");
+        acceptButton.disabled = true;
+    } else {
+        acceptButton.innerText = "Accept";
+        acceptButton.classList.remove("btn-secondary");
+        acceptButton.classList.add("btn-success");
+        acceptButton.disabled = false;
+    }
+});
+
 </script>
 
 </body>

@@ -13,6 +13,7 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -41,20 +42,35 @@ public class UserController {
 
     @PostMapping("/login")
     public String loginUser(@ModelAttribute("user") User user, Model model, HttpSession session) {
-        // First check in admin table
+
+        // -------- ADMIN LOGIN --------
         Admin admin = adminRepository.findByUsernameAndPassword(user.getUsername(), user.getPassword());
         if (admin != null) {
-            session.setAttribute("admin", true);
+            session.setAttribute("admin", admin); // ✅ store Admin object
             session.setAttribute("adminName", admin.getUsername());
-            session.setAttribute("adminLoginTime", LocalDateTime.now());
+
+            LocalDate today = LocalDate.now();
+            LocalDateTime loginTime = admin.getInTime();
+
+            // Only set once per day
+            if (loginTime == null || !loginTime.toLocalDate().equals(today)) {
+                loginTime = LocalDateTime.now();
+                admin.setInTime(loginTime);
+                adminRepository.save(admin);
+            }
+
             return "redirect:/admin";
         }
 
-        // If not admin, then check normal user
+        // -------- EMPLOYEE LOGIN --------
         User validUser = userService.login(user.getUsername(), user.getPassword());
         if (validUser != null) {
-            validUser.setInTime(LocalDateTime.now());
-            userService.saveUser(validUser);
+            LocalDate today = LocalDate.now();
+
+            if (validUser.getInTime() == null || !validUser.getInTime().toLocalDate().equals(today)) {
+                validUser.setInTime(LocalDateTime.now());
+                userService.saveUser(validUser);
+            }
 
             List<Task> tasks = userService.getTasksByUserId(validUser.getId());
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");

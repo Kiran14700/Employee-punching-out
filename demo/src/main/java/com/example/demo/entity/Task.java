@@ -31,6 +31,20 @@ public class Task {
     @Column(name = "due_date")
     private LocalDateTime dueDate;
 
+
+    //pritority
+    @Column(name = "priority")
+    private Integer priority;  // 1=Critical, 2=High, 3=Medium, 4=Low, 5=Very Low
+
+    public Integer getPriority() {
+        return priority;
+    }
+
+    public void setPriority(Integer priority) {
+        this.priority = priority;
+    }
+
+
     // Getters & Setters
     public LocalDateTime getDueDate() {
         return dueDate;
