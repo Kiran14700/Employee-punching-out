@@ -124,20 +124,47 @@ public class UserController {
             return "register";
         }
 
+        String uploadsDir = request.getServletContext().getRealPath("/uploads/");
+        File dir = new File(uploadsDir);
+        if (!dir.exists()) dir.mkdirs();
+
+        // ---- MARKSHEET FILE ----
         MultipartFile marksheetFile = user.getMarksheetFile();
         if (marksheetFile != null && !marksheetFile.isEmpty()) {
             if (marksheetFile.getSize() > 1024 * 1024) {
-                model.addAttribute("error", "File size must be <= 1MB");
+                model.addAttribute("error", "Marksheet file size must be <= 1MB");
                 return "register";
             }
-            String uploadsDir = request.getServletContext().getRealPath("/uploads/");
-            File dir = new File(uploadsDir);
-            if (!dir.exists()) dir.mkdirs();
-
-            String filename = System.currentTimeMillis() + "_" + marksheetFile.getOriginalFilename();
+            String filename = System.currentTimeMillis() + "_marksheet_" + marksheetFile.getOriginalFilename();
             File file = new File(dir, filename);
             marksheetFile.transferTo(file);
             user.setAcademicMarksheet("/uploads/" + filename);
+        }
+
+        // ---- AADHAR FILE ----
+        MultipartFile aadharFile = user.getAadharFile();
+        if (aadharFile != null && !aadharFile.isEmpty()) {
+            if (aadharFile.getSize() > 1024 * 1024) {
+                model.addAttribute("error", "Aadhar file size must be <= 1MB");
+                return "register";
+            }
+            String filename = System.currentTimeMillis() + "_aadhar_" + aadharFile.getOriginalFilename();
+            File file = new File(dir, filename);
+            aadharFile.transferTo(file);
+            user.setAadharCard("/uploads/" + filename);
+        }
+
+        // ---- PAN FILE ----
+        MultipartFile panFile = user.getPanFile();
+        if (panFile != null && !panFile.isEmpty()) {
+            if (panFile.getSize() > 1024 * 1024) {
+                model.addAttribute("error", "PAN file size must be <= 1MB");
+                return "register";
+            }
+            String filename = System.currentTimeMillis() + "_pan_" + panFile.getOriginalFilename();
+            File file = new File(dir, filename);
+            panFile.transferTo(file);
+            user.setPanCard("/uploads/" + filename);
         }
 
         userService.saveUser(user);
@@ -147,7 +174,7 @@ public class UserController {
 
 
 
-//pdf debug - 1
+    //pdf debug - 1
     // ---------------- VIEW PDF (Debugging) ----------------
     @GetMapping("/view-pdf/{filename}")
     public ResponseEntity<FileSystemResource> viewPDF(@PathVariable String filename) {

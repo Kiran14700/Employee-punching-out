@@ -28,6 +28,10 @@ public class AdminController {
     @Autowired
     private TaskRepository taskRepository;
 
+    public AdminController(AdminService adminService) {
+        this.adminService = adminService;
+    }
+
     // ---------------- ADMIN DASHBOARD ----------------
     @GetMapping("/admin")
     public String adminDashboard(HttpSession session, Model model) {
@@ -100,28 +104,19 @@ public class AdminController {
     }
 
     // ---------------- ESCALATION VIEW ----------------
+    // ✅ Escalation Dashboard
     @GetMapping("/admin/escalation")
-    public String escalationPage(Model model) {
-        Map<Long, List<Task>> dueTasks = adminService.getDueTasksByUserId();
-        Map<Long, List<Task>> escalatedTasks = adminService.getEscalatedTasksByUserId();
+    public String escalationDashboard(Model model) {
+        Map<String, Object> escalationData = adminService.getEscalationData();
 
-        List<User> dueUsers = adminService.getEmployeesWithDueTasks();
-        List<User> escalatedUsers = adminService.getEmployeesWithEscalatedTasks();
+        model.addAttribute("dueEmployees", escalationData.get("dueEmployees"));
+        model.addAttribute("escalatedEmployees", escalationData.get("escalatedEmployees"));
+        model.addAttribute("dueTasksMap", escalationData.get("dueTasksMap"));
+        model.addAttribute("escalatedTasksMap", escalationData.get("escalatedTasksMap"));
+        model.addAttribute("escalationCountMap", escalationData.get("escalationCountMap"));
 
-        model.addAttribute("dueEmployees", dueUsers);
-        model.addAttribute("escalatedEmployees", escalatedUsers);
-        model.addAttribute("dueTasksMap", dueTasks);
-        model.addAttribute("escalatedTasksMap", escalatedTasks);
-
-        Map<Long, Integer> escalationCountMap = new HashMap<>();
-        escalatedTasks.forEach((userId, taskList) -> escalationCountMap.put(userId, taskList.size()));
-        model.addAttribute("escalationCountMap", escalationCountMap);
-
-        return "escalation";
+        return "escalation"; // ye escalation.jsp ko render karega
     }
-
-
-
 
 
     // ---------------- UPDATE TASK ----------------
@@ -168,5 +163,7 @@ public class AdminController {
         taskRepository.deleteById(taskId);
         return "redirect:/admin";
     }
+
+
 
 }

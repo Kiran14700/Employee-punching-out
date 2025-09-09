@@ -9,11 +9,12 @@ import com.example.demo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-        import java.util.stream.Collectors;
+import java.util.stream.Collectors;
 
 @Service
 public class AdminService {
@@ -26,6 +27,11 @@ public class AdminService {
 
     @Autowired
     private AdminRepository adminRepository;
+
+
+    public AdminService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     // -------- existing helpers --------
     public List<User> getAllEmployees() {
@@ -68,12 +74,6 @@ public class AdminService {
     }
 
     // -------- NEW: shift-based escalation logic --------
-
-    /**
-     * Check if a task is pending
-     */
-
-
 
     // Helper to check pending
     private boolean isPending(Task t) {
@@ -118,10 +118,6 @@ public class AdminService {
                 .collect(Collectors.groupingBy(t -> t.getUser().getId()));
     }
 
-
-
-
-
     public List<User> getEmployeesWithDueTasks() {
         Map<Long, List<Task>> map = getDueTasksByUserId();
         if (map.isEmpty()) return Collections.emptyList();
@@ -132,6 +128,76 @@ public class AdminService {
         Map<Long, List<Task>> map = getEscalatedTasksByUserId();
         if (map.isEmpty()) return Collections.emptyList();
         return userRepository.findAllById(map.keySet());
+    }
+
+    // ✅ Escalation Data Logic (UPDATED)
+    public Map<String, Object> getEscalationData() {
+        LocalDate today = LocalDate.now();
+
+        List<User> allEmployees = userRepository.findAll();
+
+        List<User> dueEmployees = new ArrayList<>();
+        List<User> escalatedEmployees = new ArrayList<>();
+        Map<Long, List<Task>> dueTasksMap = new HashMap<>();
+        Map<Long, List<Task>> escalatedTasksMap = new HashMap<>();
+        Map<Long, Long> escalationCountMap = new HashMap<>();
+
+        for (User emp : allEmployees) {
+            List<Task> tasks = emp.getTasks();
+            if (tasks == null || tasks.isEmpty()) continue;
+
+            List<Task> dueTasks = new ArrayList<>();
+            List<Task> escalatedTasks = new ArrayList<>();
+
+            for (Task task : tasks) {
+                if (task.getDueDate() == null) continue;
+                if ("COMPLETED".equalsIgnoreCase(task.getStatus())) continue;
+
+                LocalDate deadlineDate = task.getDueDate().toLocalDate();
+
+                // ------------------ DUE TASKS ------------------
+                if (deadlineDate.equals(today) && emp.getInTime() != null) {
+                    Duration duration = Duration.between(emp.getInTime(), LocalDateTime.now());
+                    long hoursWorked = duration.toHours();
+
+                    if (hoursWorked >= 5 && hoursWorked < 9) {
+                        dueTasks.add(task);
+                    }
+                }
+
+                // ------------------ ESCALATION TASKS ------------------
+                if (deadlineDate.isBefore(today)) {
+                    escalatedTasks.add(task);
+                } else if (deadlineDate.equals(today) && emp.getInTime() != null) {
+                    Duration duration = Duration.between(emp.getInTime(), LocalDateTime.now());
+                    long hoursWorked = duration.toHours();
+
+                    if (hoursWorked >= 9) {
+                        escalatedTasks.add(task);
+                    }
+                }
+            }
+
+            if (!dueTasks.isEmpty()) {
+                dueEmployees.add(emp);
+                dueTasksMap.put(emp.getId(), dueTasks);
+            }
+
+            if (!escalatedTasks.isEmpty()) {
+                escalatedEmployees.add(emp);
+                escalatedTasksMap.put(emp.getId(), escalatedTasks);
+                escalationCountMap.put(emp.getId(), (long) escalatedTasks.size());
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("dueEmployees", dueEmployees);
+        result.put("escalatedEmployees", escalatedEmployees);
+        result.put("dueTasksMap", dueTasksMap);
+        result.put("escalatedTasksMap", escalatedTasksMap);
+        result.put("escalationCountMap", escalationCountMap);
+
+        return result;
     }
 
     //save login time

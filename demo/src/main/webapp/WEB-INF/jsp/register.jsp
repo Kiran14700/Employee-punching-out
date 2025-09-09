@@ -14,12 +14,17 @@
     Password: <input type="password" name="password" value="${user.password}" required><br><br>
     Confirm Password: <input type="password" name="confirmPassword" value="${user.confirmPassword}" required><br><br>
     Phone: <input type="text" name="phone" value="${user.phone}" required><br><br>
+
     Upload Marksheet (PDF): <input type="file" name="marksheetFile" accept=".pdf" required><br><br>
+    Upload Aadhar Card (PDF): <input type="file" name="aadharFile" accept=".pdf" required><br><br>
+    Upload PAN Card (PDF): <input type="file" name="panFile" accept=".pdf" required><br><br>
+
     <button type="submit">Register</button>
 </form>
 
 <c:if test="${not empty error}">
     <p style="color:red">${error}</p>
 </c:if>
+
 </body>
 </html>

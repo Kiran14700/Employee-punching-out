@@ -40,6 +40,15 @@ public class User {
     @Transient
     private MultipartFile marksheetFile; // file upload
 
+    private String aadharCard;        // aadhar file path
+    private String panCard;           // pan file path
+
+
+    @Transient
+    private MultipartFile aadharFile;
+    @Transient
+    private MultipartFile panFile;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<Task> tasks = new ArrayList<>();
 
@@ -82,4 +91,17 @@ public class User {
 
     public List<Task> getTasks() { return tasks; }
     public void setTasks(List<Task> tasks) { this.tasks = tasks; }
+
+    public String getAadharCard() { return aadharCard; }
+    public void setAadharCard(String aadharCard) { this.aadharCard = aadharCard; }
+
+    public String getPanCard() { return panCard; }
+    public void setPanCard(String panCard) { this.panCard = panCard; }
+
+    public MultipartFile getAadharFile() { return aadharFile; }
+    public void setAadharFile(MultipartFile aadharFile) { this.aadharFile = aadharFile; }
+
+    public MultipartFile getPanFile() { return panFile; }
+    public void setPanFile(MultipartFile panFile) { this.panFile = panFile; }
+
 }
