@@ -2,6 +2,8 @@ package com.example.demo.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Pattern;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,11 +16,13 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private String firstName;   // NEW
+    private String lastName;    // NEW
     private String username;
 
     @Pattern(
             regexp = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d).{8,}$",
-            message = "Password must be at least 8 characters long, contain an uppercase letter, a lowercase letter, and a number"
+            message = "Password must be at least 8 characters, contain uppercase, lowercase & number"
     )
     private String password;
 
@@ -26,86 +30,56 @@ public class User {
     private String confirmPassword;
 
     private String phone;
+    private String role = "EMPLOYEE";
+
     private LocalDateTime inTime;
     private LocalDateTime outTime;
 
-    // NEW: Role column (ADMIN / EMPLOYEE)
-    private String role = "EMPLOYEE";
+    private String academicMarksheet; // stores uploaded file path
 
-    // Make tasks eager so they load with employees
+    @Transient
+    private MultipartFile marksheetFile; // file upload
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<Task> tasks = new ArrayList<>();
 
-    // --- Getters and Setters ---
-    public Long getId() {
-        return id;
-    }
+    // ===== Getters & Setters =====
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getFirstName() { return firstName; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
 
-    public String getUsername() {
-        return username;
-    }
+    public String getLastName() { return lastName; }
+    public void setLastName(String lastName) { this.lastName = lastName; }
 
-    public void setUsername(String username) {
-        this.username = username;
-    }
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 
-    public String getPassword() {
-        return password;
-    }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
+    public String getConfirmPassword() { return confirmPassword; }
+    public void setConfirmPassword(String confirmPassword) { this.confirmPassword = confirmPassword; }
 
-    public String getConfirmPassword() {
-        return confirmPassword;
-    }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
 
-    public void setConfirmPassword(String confirmPassword) {
-        this.confirmPassword = confirmPassword;
-    }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 
-    public String getPhone() {
-        return phone;
-    }
+    public LocalDateTime getInTime() { return inTime; }
+    public void setInTime(LocalDateTime inTime) { this.inTime = inTime; }
 
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
+    public LocalDateTime getOutTime() { return outTime; }
+    public void setOutTime(LocalDateTime outTime) { this.outTime = outTime; }
 
-    public LocalDateTime getInTime() {
-        return inTime;
-    }
+    public String getAcademicMarksheet() { return academicMarksheet; }
+    public void setAcademicMarksheet(String academicMarksheet) { this.academicMarksheet = academicMarksheet; }
 
-    public void setInTime(LocalDateTime inTime) {
-        this.inTime = inTime;
-    }
+    public MultipartFile getMarksheetFile() { return marksheetFile; }
+    public void setMarksheetFile(MultipartFile marksheetFile) { this.marksheetFile = marksheetFile; }
 
-    public LocalDateTime getOutTime() {
-        return outTime;
-    }
-
-    public void setOutTime(LocalDateTime outTime) {
-        this.outTime = outTime;
-    }
-
-    public String getRole() {
-        return role;
-    }
-
-    public void setRole(String role) {
-        this.role = role;
-    }
-
-    public List<Task> getTasks() {
-        return tasks;
-    }
-
-    public void setTasks(List<Task> tasks) {
-        this.tasks = tasks;
-    }
+    public List<Task> getTasks() { return tasks; }
+    public void setTasks(List<Task> tasks) { this.tasks = tasks; }
 }

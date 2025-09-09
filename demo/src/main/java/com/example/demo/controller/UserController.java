@@ -1,10 +1,13 @@
 package com.example.demo.controller;
-
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import com.example.demo.entity.Admin;
 import com.example.demo.entity.Task;
 import com.example.demo.entity.User;
 import com.example.demo.repository.AdminRepository;
 import com.example.demo.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +15,10 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -27,46 +33,36 @@ public class UserController {
     @Autowired
     private AdminRepository adminRepository;
 
-    // ---------------- HOME REDIRECT ----------------
     @GetMapping("/")
-    public String homeRedirect() {
-        return "redirect:/login"; // default page = login
-    }
+    public String homeRedirect() { return "redirect:/login"; }
 
-    // ---------------- LOGIN METHODS ----------------
+    // ----- LOGIN -----
     @GetMapping("/login")
     public String showLoginForm(Model model) {
         model.addAttribute("user", new User());
-        return "login"; // login.jsp
+        return "login";
     }
 
     @PostMapping("/login")
     public String loginUser(@ModelAttribute("user") User user, Model model, HttpSession session) {
 
-        // -------- ADMIN LOGIN --------
         Admin admin = adminRepository.findByUsernameAndPassword(user.getUsername(), user.getPassword());
         if (admin != null) {
-            session.setAttribute("admin", admin); // ✅ store Admin object
+            session.setAttribute("admin", admin);
             session.setAttribute("adminName", admin.getUsername());
 
             LocalDate today = LocalDate.now();
             LocalDateTime loginTime = admin.getInTime();
-
-            // Only set once per day
             if (loginTime == null || !loginTime.toLocalDate().equals(today)) {
-                loginTime = LocalDateTime.now();
-                admin.setInTime(loginTime);
+                admin.setInTime(LocalDateTime.now());
                 adminRepository.save(admin);
             }
-
             return "redirect:/admin";
         }
 
-        // -------- EMPLOYEE LOGIN --------
         User validUser = userService.login(user.getUsername(), user.getPassword());
         if (validUser != null) {
             LocalDate today = LocalDate.now();
-
             if (validUser.getInTime() == null || !validUser.getInTime().toLocalDate().equals(today)) {
                 validUser.setInTime(LocalDateTime.now());
                 userService.saveUser(validUser);
@@ -74,71 +70,115 @@ public class UserController {
 
             List<Task> tasks = userService.getTasksByUserId(validUser.getId());
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
-            String inTime = validUser.getInTime() != null ? validUser.getInTime().format(formatter) : "--:--";
-            String outTime = validUser.getOutTime() != null ? validUser.getOutTime().format(formatter) : "--:--";
-
             session.setAttribute("userId", validUser.getId());
             model.addAttribute("name", validUser.getUsername());
             model.addAttribute("tasks", tasks);
-            model.addAttribute("inTime", inTime);
-            model.addAttribute("outTime", outTime);
+            model.addAttribute("inTime", validUser.getInTime().format(formatter));
+            model.addAttribute("outTime", validUser.getOutTime() != null ? validUser.getOutTime().format(formatter) : "--:--");
             model.addAttribute("taskCount", tasks.size());
 
-            return "task"; // employee task.jsp
+            return "task";
         } else {
             model.addAttribute("error", "Invalid Username or Password!");
             return "login";
         }
     }
 
-    // ---------------- LOGOUT METHOD ----------------
+
+
+
+    // ----- LOGOUT -----
     @GetMapping("/logout")
     public String logoutUser(HttpSession session) {
-        // If admin logged in
-        if (session.getAttribute("admin") != null) {
-            session.invalidate();
-            return "redirect:/login";
-        }
-
-        // If normal user logged in
         Long userId = (Long) session.getAttribute("userId");
         if (userId != null) {
             User user = userService.findUserById(userId);
             if (user != null) {
-                // save logout time
                 user.setOutTime(LocalDateTime.now());
                 userService.saveUser(user);
             }
         }
-
-        session.invalidate(); // destroy session
+        session.invalidate();
         return "redirect:/login";
     }
 
-    // ---------------- REGISTER METHODS ----------------
+    // ----- REGISTER -----
     @GetMapping("/register")
     public String showRegisterForm(Model model) {
         model.addAttribute("user", new User());
-        return "register"; // register.jsp
+        return "register";
     }
 
     @PostMapping("/register")
-    public String registerUser(@Valid @ModelAttribute("user") User user, BindingResult result, Model model) {
+    public String registerUser(@Valid @ModelAttribute("user") User user,
+                               BindingResult result,
+                               Model model,
+                               HttpServletRequest request) throws IOException {
+
         if (result.hasErrors()) {
             model.addAttribute("error", result.getFieldError("password").getDefaultMessage());
             return "register";
         }
-
         if (!user.getPassword().equals(user.getConfirmPassword())) {
             model.addAttribute("error", "Passwords do not match!");
             return "register";
         }
 
+        MultipartFile marksheetFile = user.getMarksheetFile();
+        if (marksheetFile != null && !marksheetFile.isEmpty()) {
+            if (marksheetFile.getSize() > 1024 * 1024) {
+                model.addAttribute("error", "File size must be <= 1MB");
+                return "register";
+            }
+            String uploadsDir = request.getServletContext().getRealPath("/uploads/");
+            File dir = new File(uploadsDir);
+            if (!dir.exists()) dir.mkdirs();
+
+            String filename = System.currentTimeMillis() + "_" + marksheetFile.getOriginalFilename();
+            File file = new File(dir, filename);
+            marksheetFile.transferTo(file);
+            user.setAcademicMarksheet("/uploads/" + filename);
+        }
+
         userService.saveUser(user);
-        return "redirect:/login"; // after register → login
+        return "redirect:/login";
     }
 
-    // ---------------- TASK PAGE (Employee) ----------------
+
+
+
+//pdf debug - 1
+    // ---------------- VIEW PDF (Debugging) ----------------
+    @GetMapping("/view-pdf/{filename}")
+    public ResponseEntity<FileSystemResource> viewPDF(@PathVariable String filename) {
+        String uploadsDir = "src/main/webapp/uploads/"; // folder where PDFs are stored
+        File file = new File(uploadsDir + filename);
+        if (!file.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        FileSystemResource resource = new FileSystemResource(file);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(resource);
+    }
+//pdf debug - 2
+    @GetMapping("/debug-pdfs")
+    public String debugPDFs(Model model) {
+        String uploadsDir = "src/main/webapp/uploads/";
+        File dir = new File(uploadsDir);
+        String[] pdfFiles = dir.list((d, name) -> name.toLowerCase().endsWith(".pdf"));
+
+        model.addAttribute("pdfFiles", pdfFiles != null ? pdfFiles : new String[0]);
+        return "viewPdf";
+    }
+
+
+
+
+    
+    // ----- TASK PAGE -----
     @GetMapping("/tasks")
     public String showTasks(HttpSession session, Model model) {
         Long userId = (Long) session.getAttribute("userId");
@@ -147,19 +187,17 @@ public class UserController {
         User user = userService.findUserById(userId);
         List<Task> tasks = userService.getTasksByUserId(userId);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
-        String inTime = user.getInTime() != null ? user.getInTime().format(formatter) : "--:--";
-        String outTime = user.getOutTime() != null ? user.getOutTime().format(formatter) : "--:--";
 
         model.addAttribute("tasks", tasks);
         model.addAttribute("name", user.getUsername());
-        model.addAttribute("inTime", inTime);
-        model.addAttribute("outTime", outTime);
+        model.addAttribute("inTime", user.getInTime().format(formatter));
+        model.addAttribute("outTime", user.getOutTime() != null ? user.getOutTime().format(formatter) : "--:--");
         model.addAttribute("taskCount", tasks.size());
 
-        return "task"; // employee task.jsp
+        return "task";
     }
 
-    // ---------------- ACCEPT TASK (Employee) ----------------
+    // ----- ACCEPT TASK -----
     @PostMapping("/tasks/accept")
     public String acceptTask(@RequestParam Long taskId, HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
@@ -167,10 +205,9 @@ public class UserController {
 
         Task task = userService.getTaskById(taskId);
         if (task != null && "Not Started".equals(task.getStatus())) {
-            task.setStatus("In Progress"); // goes to admin dashboard
+            task.setStatus("In Progress");
             userService.saveTask(task);
         }
-
         return "redirect:/tasks";
     }
 }
