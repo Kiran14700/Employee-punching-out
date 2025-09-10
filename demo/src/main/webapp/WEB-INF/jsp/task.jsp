@@ -11,11 +11,17 @@
 <!-- Employee Info -->
 <div class="mb-3">
     <p><strong>Username:</strong> ${name}</p>
-    <p><strong>In Time:</strong> ${inTime}</p>
-    <p><strong>Out Time:</strong> ${outTime}</p>
+        <p><strong>Login Time:</strong> ${inTime}</p>   <!-- 👈 fixed here -->
     <p><strong>No of Tasks Assigned:</strong> ${taskCount}</p>
     <a href="${pageContext.request.contextPath}/logout" class="btn btn-danger">Logout</a>
 </div>
+
+
+<a href="${pageContext.request.contextPath}/emp/escalation"
+   class="btn btn-warning mt-3">
+   View Escalations
+</a>
+
 
 <!-- Task Buttons -->
 <div class="d-grid gap-2 d-md-block">
@@ -34,6 +40,7 @@
         </button>
     </c:forEach>
 </div>
+
 
 <!-- Modal for Viewing Task -->
 <div class="modal fade" id="taskModal" tabindex="-1" aria-hidden="true">

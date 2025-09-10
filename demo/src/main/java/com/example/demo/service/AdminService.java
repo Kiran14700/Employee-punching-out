@@ -93,7 +93,7 @@ public class AdminService {
 
                     double workedHours = ChronoUnit.MINUTES.between(loginTime, now) / 60.0;
 
-                    // ✅ DUE condition: half shift done, full shift not done, deadline not passed
+                    //  DUE condition: half shift done, full shift not done, deadline not passed
                     return workedHours >= 4.5 && workedHours < 9 && now.isBefore(t.getDueDate());
                 })
                 .collect(Collectors.groupingBy(t -> t.getUser().getId()));
@@ -112,7 +112,7 @@ public class AdminService {
 
                     double workedHours = ChronoUnit.MINUTES.between(loginTime, now) / 60.0;
 
-                    // ✅ Escalation: full shift done OR deadline passed
+                    //  Escalation: full shift done OR deadline passed
                     return workedHours >= 9 || !now.isBefore(t.getDueDate());
                 })
                 .collect(Collectors.groupingBy(t -> t.getUser().getId()));
@@ -130,7 +130,7 @@ public class AdminService {
         return userRepository.findAllById(map.keySet());
     }
 
-    // ✅ Escalation Data Logic (UPDATED)
+    // Escalation Data Logic (UPDATED)
     public Map<String, Object> getEscalationData() {
         LocalDate today = LocalDate.now();
 

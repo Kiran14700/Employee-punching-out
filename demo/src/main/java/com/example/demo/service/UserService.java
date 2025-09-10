@@ -7,7 +7,11 @@ import com.example.demo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -46,5 +50,49 @@ public class UserService {
     // Find user by id
     public User findUserById(Long userId) {
         return userRepository.findById(userId).orElse(null);
+    }
+
+    //Escalation
+    public int getTaskCount(Long userId) {
+        return taskRepository.findByUserId(userId).size();
+    }
+
+    public List<Task> getTasksForUser(Long userId) {
+        return taskRepository.findByUserId(userId);
+    }
+
+    //  Calculate shift hours from login time
+    private long getShiftHours(User user) {
+        if (user.getInTime() == null) return 0;
+        return Duration.between(user.getInTime(), LocalDateTime.now()).toHours();
+    }
+
+    //  Due Tasks
+    public List<Task> getDueTasks(User user) {
+        long shiftHours = getShiftHours(user);
+        LocalDate today = LocalDate.now();
+
+        return taskRepository.findByUserId(user.getId()).stream()
+                .filter(task -> !"Completed".equalsIgnoreCase(task.getStatus()))
+                .filter(task -> task.getDueDate() != null && task.getDueDate().toLocalDate().isEqual(today))
+                .filter(task -> shiftHours >= 5 && shiftHours < 9)
+                .collect(Collectors.toList());
+    }
+
+    //  Escalated Tasks
+    public List<Task> getEscalatedTasks(User user) {
+        long shiftHours = getShiftHours(user);
+        LocalDate today = LocalDate.now();
+
+        return taskRepository.findByUserId(user.getId()).stream()
+                .filter(task -> !"Completed".equalsIgnoreCase(task.getStatus()))
+                .filter(task ->
+                        // deadline already past
+                        (task.getDueDate() != null && task.getDueDate().toLocalDate().isBefore(today))
+                                ||
+                                // deadline today but shift ≥ 9 hours
+                                (task.getDueDate() != null && task.getDueDate().toLocalDate().isEqual(today) && shiftHours >= 9)
+                )
+                .collect(Collectors.toList());
     }
 }

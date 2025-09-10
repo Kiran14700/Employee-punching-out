@@ -104,7 +104,7 @@ public class AdminController {
     }
 
     // ---------------- ESCALATION VIEW ----------------
-    // ✅ Escalation Dashboard
+    //  Escalation Dashboard
     @GetMapping("/admin/escalation")
     public String escalationDashboard(Model model) {
         Map<String, Object> escalationData = adminService.getEscalationData();
@@ -152,7 +152,7 @@ public class AdminController {
             taskRepository.save(task);
         }
 
-        // ✅ Always return to admin dashboard
+        //  Always return to admin dashboard
         return "redirect:/admin";
     }
 
